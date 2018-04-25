@@ -21,6 +21,7 @@ struct EditProductViewModel: ViewModelType {
         let save: Driver<Void>
         let dismiss: Driver<Void>
         let product: Driver<Product>
+        let validProduct: Driver<Bool>
         let error: Driver<Error>
     }
     
@@ -35,6 +36,11 @@ struct EditProductViewModel: ViewModelType {
     func transform(input: Input) -> Output {
         let errorTracker = ErrorTracker()
         let nameAndPrice = Driver.combineLatest(input.name, input.price)
+
+        let validProduct = input.saveTrigger.withLatestFrom(nameAndPrice) { _, nameAndPrice  -> Bool in
+            let (name, price) = nameAndPrice
+            return !name.isEmpty && price != 0
+        }
         
         let product = Driver.combineLatest(Driver.just(self.product), nameAndPrice) { (product, nameAndPrice) -> Product in
             return Product(id: product?.id ?? UUID().uuidString,
@@ -45,6 +51,13 @@ struct EditProductViewModel: ViewModelType {
         
         let save = input.saveTrigger.withLatestFrom(product)
             .flatMapLatest { product -> Driver<Void> in
+
+                if product.name.isEmpty || product.price == 0 {
+                    return Driver.empty() // Return thằng này nó sẽ không đi tiếp.
+                    // Chú ý là chỗ thằng dismiss nó sẽ "do" nếu nhận đc tín hiệu từ save hoặc cancelTrigger
+                    // nên chỗ này trả về empty để nó khỏi bắt đc ấy mà.
+                }
+
                 if self.editingProduct {
                     return self.useCase.update(product)
                         .trackError(errorTracker)
@@ -63,6 +76,7 @@ struct EditProductViewModel: ViewModelType {
         return Output(save: save,
                       dismiss: dismiss,
                       product: product,
+                      validProduct: validProduct,
                       error: errorTracker.asDriver())
     }
 }
