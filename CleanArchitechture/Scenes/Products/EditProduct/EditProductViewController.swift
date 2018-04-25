@@ -60,16 +60,24 @@ class EditProductViewController: UIViewController, BindableType {
     }
     
     var errorBinding: Binder<Error> {
-        return Binder(self, binding: { (vc, _) in
-            let alert = UIAlertController(title: "Save Error",
-                                          message: "Something went wrong",
-                                          preferredStyle: .alert)
-            let action = UIAlertAction(title: "Dismiss",
-                                       style: UIAlertActionStyle.cancel,
-                                       handler: nil)
-            alert.addAction(action)
-            vc.present(alert, animated: true, completion: nil)
+        return Binder(self, binding: { (vc, error) in
+            if let error = error as? CustomError {
+                vc.showAlert(message: error.description)
+            } else {
+                // ??? Error From API
+            }
         })
+    }
+
+    func showAlert(message: String) {
+        let alert = UIAlertController(title: "",
+                                      message: message,
+                                      preferredStyle: .alert)
+        let action = UIAlertAction(title: "Cancel",
+                                   style: UIAlertActionStyle.cancel,
+                                   handler: nil)
+        alert.addAction(action)
+        self.present(alert, animated: true, completion: nil)
     }
 
 }

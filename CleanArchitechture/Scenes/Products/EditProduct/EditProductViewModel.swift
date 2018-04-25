@@ -8,6 +8,10 @@
 
 import UIKit
 
+struct CustomError: Error, CustomStringConvertible {
+    var description: String
+}
+
 struct EditProductViewModel: ViewModelType {
     
     struct Input {
@@ -35,6 +39,10 @@ struct EditProductViewModel: ViewModelType {
     func transform(input: Input) -> Output {
         let errorTracker = ErrorTracker()
         let nameAndPrice = Driver.combineLatest(input.name, input.price)
+        //Anh nghĩ giá trị không  hợp lệ thì trả nó về dưới dạng 1 lỗi vậy
+        // Ở đây nó ko phải lỗi từ API mà lỗi do mình tự xét duyệt nên anh tạm tạo 1 cái errorSubject
+        // chú coi chương 3 để biết PublishSubject.
+        let errorSubject = PublishSubject<Error>()
         
         let product = Driver.combineLatest(Driver.just(self.product), nameAndPrice) { (product, nameAndPrice) -> Product in
             return Product(id: product?.id ?? UUID().uuidString,
@@ -45,6 +53,12 @@ struct EditProductViewModel: ViewModelType {
         
         let save = input.saveTrigger.withLatestFrom(product)
             .flatMapLatest { product -> Driver<Void> in
+
+                if product.name.isEmpty || product.price == 0 {
+                    errorSubject.onNext(CustomError(description: "Gia Tri Khong Hop Le"))
+                    return Driver.empty() // trả về empty thì thằng dismiss ở dứoi nó ko bắt đc tín hiệu để thoát khỏi màn hình này
+                }
+
                 if self.editingProduct {
                     return self.useCase.update(product)
                         .trackError(errorTracker)
@@ -59,11 +73,13 @@ struct EditProductViewModel: ViewModelType {
         let dismiss = Driver.of(save, input.cancelTrigger)
             .merge()
             .do(onNext: navigator.toProducts)
+
+        let error = Driver.merge([errorTracker.asDriver(), errorSubject.asDriverOnErrorJustComplete()])
         
         return Output(save: save,
                       dismiss: dismiss,
                       product: product,
-                      error: errorTracker.asDriver())
+                      error: error)
     }
 }
 
