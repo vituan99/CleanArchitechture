@@ -50,7 +50,18 @@ class EditProductViewController: UIViewController, BindableType {
         output.error
             .drive(errorBinding)
             .disposed(by: rx.disposeBag)
+        output.validProduct
+            .drive(validProductBinding)
+            .disposed(by: rx.disposeBag)
         
+    }
+
+    var validProductBinding: Binder<Bool> {
+        return Binder(self, binding: { (vc, valid) in
+            if !valid {
+                vc.showAlert(message: "Gia tri khong hop le")
+            }
+        })
     }
     
     var postBinding: Binder<Product> {
@@ -70,6 +81,17 @@ class EditProductViewController: UIViewController, BindableType {
             alert.addAction(action)
             vc.present(alert, animated: true, completion: nil)
         })
+    }
+
+    func showAlert(message: String) {
+        let alert = UIAlertController(title: "",
+                                      message: message,
+                                      preferredStyle: .alert)
+        let action = UIAlertAction(title: "Cancel",
+                                   style: UIAlertActionStyle.cancel,
+                                   handler: nil)
+        alert.addAction(action)
+        self.present(alert, animated: true, completion: nil)
     }
 
 }
